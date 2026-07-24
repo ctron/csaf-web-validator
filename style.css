@@ -40,6 +40,12 @@ header {
     margin-bottom: 2rem;
 }
 
+.header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
 header h1 {
     font-size: 1.75rem;
     font-weight: 700;
@@ -48,6 +54,15 @@ header h1 {
 header .subtitle {
     color: var(--color-text-muted);
     margin-top: 0.25rem;
+}
+
+.github-link {
+    color: var(--color-text-muted);
+    transition: color 0.15s;
+}
+
+.github-link:hover {
+    color: var(--color-text);
 }
 
 .input-section {
