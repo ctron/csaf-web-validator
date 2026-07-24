@@ -1,11 +1,64 @@
 mod validator;
 
+use base64::prelude::*;
 use csaf::validation::{TestResult, TestResultStatus, ValidationResult};
+use flate2::read::DeflateDecoder;
+use flate2::write::DeflateEncoder;
+use flate2::Compression;
 use leptos::prelude::*;
+use std::io::{Read, Write};
+use wasm_bindgen::prelude::*;
 
 fn main() {
     browser_panic_hook::set_once_default();
     mount_to_body(|| view! { <App /> });
+}
+
+fn compress_to_url_param(input: &str) -> String {
+    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::best());
+    encoder.write_all(input.as_bytes()).unwrap();
+    let compressed = encoder.finish().unwrap();
+    BASE64_URL_SAFE_NO_PAD.encode(&compressed)
+}
+
+fn decompress_from_url_param(encoded: &str) -> Option<String> {
+    let compressed = BASE64_URL_SAFE_NO_PAD.decode(encoded).ok()?;
+    let mut decoder = DeflateDecoder::new(&compressed[..]);
+    let mut result = String::new();
+    decoder.read_to_string(&mut result).ok()?;
+    Some(result)
+}
+
+fn build_share_url(json_input: &str, preset: &str) -> Option<String> {
+    if json_input.is_empty() {
+        return None;
+    }
+    let window = web_sys::window()?;
+    let origin = window.location().origin().ok()?;
+    let pathname = window.location().pathname().ok()?;
+    let encoded = compress_to_url_param(json_input);
+    Some(format!("{origin}{pathname}?preset={preset}&doc={encoded}"))
+}
+
+fn update_url(json_input: &str, preset: &str) {
+    if let Some(url) = build_share_url(json_input, preset) {
+        if let Some(window) = web_sys::window() {
+            let _ = window
+                .history()
+                .ok()
+                .and_then(|h| h.replace_state_with_url(&JsValue::NULL, "", Some(&url)).ok());
+        }
+    }
+}
+
+fn load_from_url() -> Option<(String, String)> {
+    let window = web_sys::window()?;
+    let search = window.location().search().ok()?;
+    let params = web_sys::UrlSearchParams::new_with_str(&search).ok()?;
+    let doc_encoded = params.get("doc")?;
+    let doc = decompress_from_url_param(&doc_encoded)?;
+    let preset = params.get("preset").unwrap_or_else(|| "full".to_string());
+    Some((doc, preset))
 }
 
 #[component]
@@ -13,10 +66,65 @@ fn App() -> impl IntoView {
     let json_input = RwSignal::new(String::new());
     let preset = RwSignal::new("full".to_string());
     let result: RwSignal<Option<Result<ValidationResult, String>>> = RwSignal::new(None);
+    let copied = RwSignal::new(false);
 
-    let on_validate = move |_: leptos::ev::MouseEvent| {
+    let do_validate = move || {
         let r = validator::validate(&json_input.get(), &preset.get());
         result.set(Some(r));
+        update_url(&json_input.get(), &preset.get());
+    };
+
+    let on_validate = move |_: leptos::ev::MouseEvent| {
+        do_validate();
+    };
+
+    if let Some((doc, p)) = load_from_url() {
+        json_input.set(doc);
+        preset.set(p);
+        do_validate();
+    }
+
+    let file_input_ref = NodeRef::<leptos::html::Input>::new();
+
+    let on_pick_file = move |_: leptos::ev::MouseEvent| {
+        if let Some(input) = file_input_ref.get() {
+            input.click();
+        }
+    };
+
+    let on_file_change = move |_: leptos::ev::Event| {
+        let Some(input) = file_input_ref.get() else {
+            return;
+        };
+        let Some(files) = input.files() else { return };
+        let Some(file) = files.get(0) else { return };
+
+        let reader = web_sys::FileReader::new().unwrap();
+        let reader_clone = reader.clone();
+        let onload = Closure::<dyn Fn()>::new(move || {
+            if let Ok(text) = reader_clone.result() {
+                if let Some(s) = text.as_string() {
+                    json_input.set(s);
+                }
+            }
+        });
+        reader.set_onload(Some(onload.as_ref().unchecked_ref()));
+        onload.forget();
+        reader.read_as_text(&file).unwrap();
+    };
+
+    let on_share = move |_: leptos::ev::MouseEvent| {
+        if let Some(window) = web_sys::window() {
+            if let Ok(url) = window.location().href() {
+                let clipboard = window.navigator().clipboard();
+                let _ = clipboard.write_text(&url);
+                copied.set(true);
+                set_timeout(
+                    move || copied.set(false),
+                    std::time::Duration::from_secs(2),
+                );
+            }
+        }
     };
 
     view! {
@@ -35,6 +143,16 @@ fn App() -> impl IntoView {
                         on:input=move |ev| json_input.set(event_target_value(&ev))
                     />
                     <div class="controls">
+                        <input
+                            type="file"
+                            accept=".json"
+                            style="display:none"
+                            node_ref=file_input_ref
+                            on:change=on_file_change
+                        />
+                        <button class="pick-file-btn" on:click=on_pick_file>
+                            "Pick file"
+                        </button>
                         <label for="preset">"Preset"</label>
                         <select
                             id="preset"
@@ -45,6 +163,13 @@ fn App() -> impl IntoView {
                             <option value="extended">"Extended"</option>
                             <option value="full">"Full"</option>
                         </select>
+                        <button
+                            class="share-btn"
+                            on:click=on_share
+                            disabled=move || result.get().is_none()
+                        >
+                            {move || if copied.get() { "Copied!" } else { "Share" }}
+                        </button>
                         <button class="validate-btn" on:click=on_validate>"Validate"</button>
                     </div>
                 </section>

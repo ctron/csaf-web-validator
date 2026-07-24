@@ -5,6 +5,21 @@ edition = "2024"
 rust-version = "1.88.0"
 
 [dependencies]
+base64 = "0.22"
 browser-panic-hook = "0.2"
 csaf = { package = "csaf-rs", git = "https://github.com/csaf-rs/csaf.git" }
+flate2 = "1"
 leptos = { version = "0.8", features = ["csr"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "Clipboard",
+    "File",
+    "FileList",
+    "FileReader",
+    "History",
+    "HtmlInputElement",
+    "Navigator",
+    "Url",
+    "UrlSearchParams",
+] }
