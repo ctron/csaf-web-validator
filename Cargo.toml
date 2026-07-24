@@ -1,0 +1,9 @@
+[package]
+name = "csaf-web-validator"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88.0"
+
+[dependencies]
+csaf = { package = "csaf-rs", git = "https://github.com/csaf-rs/csaf.git" }
+leptos = { version = "0.7", features = ["csr"] }
