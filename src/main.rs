@@ -131,7 +131,10 @@ fn App() -> impl IntoView {
         <div class="app">
             <header>
                 <h1>"CSAF Web Validator"</h1>
-                <p class="subtitle">"Paste a CSAF document and validate it in your browser"</p>
+                <p class="subtitle">
+                    "Paste a CSAF document and validate it in your browser "
+                    <a href="https://github.com/ctron/csaf-web-validator" target="_blank">"GitHub"</a>
+                </p>
             </header>
             <main>
                 <section class="input-section">
