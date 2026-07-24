@@ -4,6 +4,7 @@ use csaf::validation::{TestResult, TestResultStatus, ValidationResult};
 use leptos::prelude::*;
 
 fn main() {
+    browser_panic_hook::set_once_default();
     mount_to_body(|| view! { <App /> });
 }
 

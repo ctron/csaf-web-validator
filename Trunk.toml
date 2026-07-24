@@ -1,0 +1,3 @@
+[build]
+# rust-embed uses runtime filesystem access in debug builds, which fails on WASM
+release = true
