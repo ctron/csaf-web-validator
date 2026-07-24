@@ -32,8 +32,11 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Install cargo-binstall
+        run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
       - name: Install trunk
-        run: cargo install trunk --locked
+        run: cargo binstall trunk --no-confirm
 
       - name: Build
         run: trunk build --release --public-url /csaf-web-validator/
