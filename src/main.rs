@@ -71,6 +71,38 @@ fn ValidationResults(result: ValidationResult) -> impl IntoView {
     let num_warnings = result.num_warnings;
     let num_infos = result.num_infos;
 
+    let total = result.test_results.len();
+    let mut test_errors = 0usize;
+    let mut test_warnings = 0usize;
+    let mut test_infos = 0usize;
+    let mut test_skipped = 0usize;
+    let mut failed_tests = Vec::new();
+
+    for t in result.test_results {
+        match &t.status {
+            TestResultStatus::Success => {}
+            TestResultStatus::Failure {
+                errors,
+                warnings,
+                ..
+            } => {
+                if !errors.is_empty() {
+                    test_errors += 1;
+                } else if !warnings.is_empty() {
+                    test_warnings += 1;
+                } else {
+                    test_infos += 1;
+                }
+                failed_tests.push(t);
+            }
+            TestResultStatus::Skipped | TestResultStatus::NotFound => {
+                test_skipped += 1;
+            }
+        }
+    }
+
+    let test_passed = total - test_errors - test_warnings - test_infos - test_skipped;
+
     let banner_class = if success {
         "summary-banner pass"
     } else {
@@ -82,19 +114,23 @@ fn ValidationResults(result: ValidationResult) -> impl IntoView {
         format!("CSAF {version} \u{2014} Invalid")
     };
 
-    let failed_tests: Vec<TestResult> = result
-        .test_results
-        .into_iter()
-        .filter(|t| matches!(&t.status, TestResultStatus::Failure { .. }))
-        .collect();
-
     view! {
         <div class=banner_class>
-            <span class="status">{status_text}</span>
-            <div class="counts">
-                <span class="count-error">{format!("{num_errors} errors")}</span>
-                <span class="count-warning">{format!("{num_warnings} warnings")}</span>
-                <span class="count-info">{format!("{num_infos} infos")}</span>
+            <DonutChart
+                total
+                passed=test_passed
+                errors=test_errors
+                warnings=test_warnings
+                infos=test_infos
+                skipped=test_skipped
+            />
+            <div class="summary-text">
+                <span class="status">{status_text}</span>
+                <div class="counts">
+                    <span class="count-error">{format!("{num_errors} errors")}</span>
+                    <span class="count-warning">{format!("{num_warnings} warnings")}</span>
+                    <span class="count-info">{format!("{num_infos} infos")}</span>
+                </div>
             </div>
         </div>
 
@@ -105,6 +141,70 @@ fn ValidationResults(result: ValidationResult) -> impl IntoView {
                 .collect::<Vec<_>>()}
         </div>
     }
+}
+
+#[component]
+fn DonutChart(
+    total: usize,
+    passed: usize,
+    errors: usize,
+    warnings: usize,
+    infos: usize,
+    skipped: usize,
+) -> impl IntoView {
+    if total == 0 {
+        return view! { <div /> }.into_any();
+    }
+
+    let pct = |n: usize| (n as f64 / total as f64) * 100.0;
+    let segments: Vec<(&str, f64)> = [
+        ("#16a34a", pct(passed)),
+        ("#dc3545", pct(errors)),
+        ("#f59e0b", pct(warnings)),
+        ("#3b82f6", pct(infos)),
+        ("#9ca3af", pct(skipped)),
+    ]
+    .into_iter()
+    .filter(|(_, p)| *p > 0.0)
+    .collect();
+
+    let mut offset = 25.0; // start at 12 o'clock (SVG circles start at 3 o'clock, 25 = -75%)
+    let circles: Vec<_> = segments
+        .iter()
+        .map(|(color, pct)| {
+            let dash = format!("{pct} {}", 100.0 - pct);
+            let o = offset;
+            offset -= pct;
+            (*color, dash, o)
+        })
+        .collect();
+
+    view! {
+        <svg class="donut-chart" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#e5e7eb" stroke-width="3" />
+            {circles
+                .into_iter()
+                .map(|(color, dash, o)| {
+                    view! {
+                        <circle
+                            cx="18"
+                            cy="18"
+                            r="15.9155"
+                            fill="none"
+                            stroke=color
+                            stroke-width="3"
+                            stroke-dasharray=dash
+                            stroke-dashoffset=o.to_string()
+                        />
+                    }
+                })
+                .collect::<Vec<_>>()}
+            <text x="18" y="18" class="donut-center-text">
+                {total.to_string()}
+            </text>
+        </svg>
+    }
+    .into_any()
 }
 
 #[component]

@@ -124,9 +124,30 @@ header .subtitle {
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
+    gap: 1rem;
+}
+
+.summary-text {
+    flex: 1;
+    display: flex;
+    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 0.5rem;
+}
+
+.donut-chart {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+}
+
+.donut-center-text {
+    font-size: 0.5rem;
+    font-weight: 700;
+    fill: var(--color-text);
+    text-anchor: middle;
+    dominant-baseline: central;
 }
 
 .summary-banner.pass {
